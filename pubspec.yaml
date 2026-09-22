@@ -24,7 +24,7 @@ dependencies:
   shimmer: ^3.0.0
   flutter_riverpod: ^2.6.1
   flutter_inappwebview: ^6.1.5
-  package_info_plus: ^8.0.0
+  package_info_plus: ^10.2.1
   flutter_animate: ^4.5.0
   crypto: ^3.0.3
   open_filex: ^4.3.4
