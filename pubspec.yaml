@@ -9,9 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  media_kit: ^1.1.11
-  media_kit_video: ^1.0.5
-  media_kit_libs_video: ^1.0.7
+  better_player_plus: ^1.0.9
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
