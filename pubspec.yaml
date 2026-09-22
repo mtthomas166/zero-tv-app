@@ -9,7 +9,7 @@ environment:
 dependencies:
   media_kit: ^1.1.11
   media_kit_video: ^1.0.10
-  media_kit_libs_video: ^1.0.10
+  media_kit_libs_video: ^1.0.7
   flutter_localizations:
     sdk: flutter
 
