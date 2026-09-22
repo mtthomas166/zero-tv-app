@@ -85,6 +85,16 @@ class _VeilAppState extends ConsumerState<VeilApp> with WidgetsBindingObserver {
       theme: AppTheme.dark(),
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
+      MaterialApp(
+  locale: const Locale('ar', 'EG'),
+  supportedLocales: const [Locale('ar', 'EG')],
+  localizationsDelegates: const [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  // ... باقي الكود
+)
     );
   }
 }
