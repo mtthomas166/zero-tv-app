@@ -18,6 +18,7 @@ class TmdbService {
   static const Duration _requestTimeout = Duration(seconds: 30);
   static const int _maxAttempts = 3;
   static final Uri _baseUri = Uri.parse('https://api.themoviedb.org/3/');
+  static const String _defaultLanguage = 'ar-EG';
 
   Future<List<MediaItem>> getTrending(String type, String window) async {
     try {
@@ -26,14 +27,14 @@ class TmdbService {
         'trending/$tmdbType/$window',
       );
 
-      return ((json['results'] as List?) ?? const <dynamic>[])
-          .map(
+      return ((json['results'] as List?)?? const <dynamic>[])
+         .map(
             (dynamic item) => MediaItem.fromTmdb(
-              Map<String, dynamic>.from(item as Map? ?? const {}),
+              Map<String, dynamic>.from(item as Map??? const {}),
             ),
           )
-          .where((MediaItem item) => item.tmdbId > 0)
-          .toList();
+         .where((MediaItem item) => item.tmdbId > 0)
+         .toList();
     } catch (_) {
       return const <MediaItem>[];
     }
@@ -56,30 +57,30 @@ class TmdbService {
       );
 
       final List<Map<String, dynamic>> results =
-          ((json['results'] as List?) ?? const <dynamic>[])
-              .map(
+          ((json['results'] as List?)?? const <dynamic>[])
+             .map(
                 (dynamic item) => Map<String, dynamic>.from(
-                  item as Map? ?? const <String, dynamic>{},
+                  item as Map??? const <String, dynamic>{},
                 ),
               )
-              .toList();
+             .toList();
 
       final List<MediaItem> directMatches = results
-          .where(_isSearchableMedia)
-          .map(MediaItem.fromTmdb)
-          .where((MediaItem item) => item.tmdbId > 0)
-          .toList();
+         .where(_isSearchableMedia)
+         .map(MediaItem.fromTmdb)
+         .where((MediaItem item) => item.tmdbId > 0)
+         .toList();
 
       final List<MediaItem> peopleMatches = results
-          .where((Map<String, dynamic> item) {
-            return '${item['media_type'] ?? ''}'.toLowerCase() == 'person';
+         .where((Map<String, dynamic> item) {
+            return '${item['media_type']?? ''}'.toLowerCase() == 'person';
           })
-          .expand(_knownForMedia)
-          .map(MediaItem.fromTmdb)
-          .where((MediaItem item) => item.tmdbId > 0)
-          .toList();
+         .expand(_knownForMedia)
+         .map(MediaItem.fromTmdb)
+         .where((MediaItem item) => item.tmdbId > 0)
+         .toList();
 
-      return _dedupeMediaItems(<MediaItem>[...directMatches, ...peopleMatches]);
+      return _dedupeMediaItems(<MediaItem>[...directMatches,...peopleMatches]);
     } catch (_) {
       return const <MediaItem>[];
     }
@@ -101,7 +102,7 @@ class TmdbService {
 
       return MediaItem.fromTmdb(json);
     } catch (_) {
-      return fallback ?? _fallbackMediaItem(id: id, type: type);
+      return fallback?? _fallbackMediaItem(id: id, type: type);
     }
   }
 
@@ -111,13 +112,13 @@ class TmdbService {
         'tv/$showId/season/$seasonNum',
       );
 
-      return ((json['episodes'] as List?) ?? const <dynamic>[])
-          .map(
+      return ((json['episodes'] as List?)?? const <dynamic>[])
+         .map(
             (dynamic episode) => Episode.fromTmdb(
-              Map<String, dynamic>.from(episode as Map? ?? const {}),
+              Map<String, dynamic>.from(episode as Map??? const {}),
             ),
           )
-          .toList();
+         .toList();
     } catch (_) {
       return const <Episode>[];
     }
@@ -132,24 +133,28 @@ class TmdbService {
       return const <String, dynamic>{};
     }
 
-    final Uri uri = _baseUri
-        .resolve(path)
-        .replace(
-          queryParameters: queryParameters.isEmpty ? null : queryParameters,
+    final Map<String, String> finalQueryParameters = <String, String>{
+      'language': _defaultLanguage,
+     ...queryParameters,
+    };
+
+    final Uri uri = _baseUri.resolve(path).replace(
+          queryParameters:
+              finalQueryParameters.isEmpty? null : finalQueryParameters,
         );
     final String cacheKey = _cacheKey(uri);
     final DateTime now = DateTime.now();
     final _CacheEntry<dynamic>? cached = _cache[cacheKey];
-    if (cached != null && now.difference(cached.storedAt) < _cacheTtl) {
+    if (cached!= null && now.difference(cached.storedAt) < _cacheTtl) {
       return Map<String, dynamic>.from(cached.value as Map);
     }
 
     final Future<Map<String, dynamic>>? pending = _inFlight[cacheKey];
-    if (pending != null) {
+    if (pending!= null) {
       try {
         return Map<String, dynamic>.from(await pending);
       } on Exception catch (error) {
-        if (cached != null) {
+        if (cached!= null) {
           return Map<String, dynamic>.from(cached.value as Map);
         }
         throw Exception('TMDB request failed: $error');
@@ -166,7 +171,7 @@ class TmdbService {
     try {
       return Map<String, dynamic>.from(await request);
     } on Exception catch (error) {
-      if (cached != null) {
+      if (cached!= null) {
         return Map<String, dynamic>.from(cached.value as Map);
       }
       throw Exception('TMDB request failed: $error');
@@ -232,7 +237,7 @@ class TmdbService {
       }
     }
 
-    if (lastError != null) {
+    if (lastError!= null) {
       throw lastError;
     }
     throw Exception('TMDB request failed.');
@@ -240,7 +245,7 @@ class TmdbService {
 
   Future<http.Response> _send(http.Client client, Uri uri, String token) {
     return client
-        .get(
+       .get(
           uri,
           headers: <String, String>{
             'accept': 'application/json',
@@ -248,7 +253,7 @@ class TmdbService {
             'user-agent': 'Veil-Android/1.0',
           },
         )
-        .timeout(_requestTimeout);
+       .timeout(_requestTimeout);
   }
 
   static bool _isRetryableStatus(int statusCode) {
@@ -292,7 +297,7 @@ class TmdbService {
   }) {
     return MediaItem(
       tmdbId: id,
-      type: _normalizeDetailType(type) == 'tv' ? 'show' : 'movie',
+      type: _normalizeDetailType(type) == 'tv'? 'show' : 'movie',
       title: '',
       overview: '',
       posterPath: null,
@@ -305,7 +310,7 @@ class TmdbService {
   }
 
   static bool _isSearchableMedia(Map<String, dynamic> item) {
-    final String mediaType = '${item['media_type'] ?? ''}'.toLowerCase();
+    final String mediaType = '${item['media_type']?? ''}'.toLowerCase();
     return mediaType == 'movie' || mediaType == 'tv';
   }
 
@@ -313,10 +318,10 @@ class TmdbService {
     Map<String, dynamic> person,
   ) sync* {
     final List<dynamic> knownFor =
-        (person['known_for'] as List?) ?? const <dynamic>[];
+        (person['known_for'] as List?)?? const <dynamic>[];
     for (final dynamic item in knownFor) {
       final Map<String, dynamic> media = Map<String, dynamic>.from(
-        item as Map? ?? const <String, dynamic>{},
+        item as Map??? const <String, dynamic>{},
       );
       if (_isSearchableMedia(media)) {
         yield media;
