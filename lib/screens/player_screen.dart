@@ -11,8 +11,8 @@ class PlayerScreenArgs {
   final int? resumeFrom;
   final int? replaceEpoch;
   // دول اللي كانوا ناقصين وبيوقعوا الـ Analyze
-  final int? seasonTmdbId;
-  final int? episodeTmdbId;
+  final dynamic seasonTmdbId;
+  final dynamic episodeTmdbId;
   final String? seasonTitle;
   final bool? isLive;
   final String? liveChannelName;
