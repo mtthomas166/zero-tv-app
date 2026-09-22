@@ -1,3 +1,12 @@
+import 'package:media_kit/media_kit.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+  runApp(const MyApp());
+}
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
