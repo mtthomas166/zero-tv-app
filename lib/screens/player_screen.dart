@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:better_player_plus/better_player_plus.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String sourceUrl;
@@ -12,28 +11,36 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late final Player player;
-  late final VideoController controller;
+  late BetterPlayerController _controller;
 
   @override
   void initState() {
     super.initState();
-    player = Player(
-      configuration: PlayerConfiguration(
-        vo: 'mediacodec_embed',
-        hwdec: 'mediacodec',
-        title: 'Veil',
-        osc: false,
-        bufferSize: 32 * 1024 * 1024, // 32MB buffer عشان ميعلقش
+    BetterPlayerDataSource dataSource = BetterPlayerDataSource(
+      BetterPlayerDataSourceType.network,
+      widget.sourceUrl,
+      bufferingConfiguration: const BetterPlayerBufferingConfiguration(
+        minBufferMs: 50000,
+        maxBufferMs: 131072,
+        bufferForPlaybackMs: 2500,
+        bufferForPlaybackAfterRebufferMs: 5000,
       ),
     );
-    controller = VideoController(player);
-    player.open(Media(widget.sourceUrl), play: true);
+
+    _controller = BetterPlayerController(
+      const BetterPlayerConfiguration(
+        autoPlay: true,
+        fit: BoxFit.contain,
+        autoDispose: true,
+        handleLifecycle: true,
+      ),
+      betterPlayerDataSource: dataSource,
+    );
   }
 
   @override
   void dispose() {
-    player.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -42,14 +49,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(title: Text(widget.title), backgroundColor: Colors.black),
-      body: Center(
-        child: Video(
-          controller: controller,
-          fit: BoxFit.contain,
-          wakelock: true,
-          controls: (state) => MaterialVideoControls(state),
-        ),
-      ),
+      body: Center(child: BetterPlayer(controller: _controller)),
     );
   }
 }
