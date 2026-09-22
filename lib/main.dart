@@ -1,16 +1,9 @@
-import 'package:media_kit/media_kit.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
-  runApp(const MyApp());
-}
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:pstream_android/config/app_theme.dart';
 import 'package:pstream_android/config/device_profile.dart';
@@ -27,9 +20,6 @@ Future<void> main() async {
   await DeviceProfile.init();
 
   if (DeviceProfile.isTv) {
-    // On TV every interaction is remote-driven: always render focus
-    // highlights instead of waiting for the first key event to switch the
-    // focus manager out of touch mode.
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
   }
@@ -85,16 +75,16 @@ class _VeilAppState extends ConsumerState<VeilApp> with WidgetsBindingObserver {
       theme: AppTheme.dark(),
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
-      MaterialApp(
-  locale: const Locale('ar', 'EG'),
-  supportedLocales: const [Locale('ar', 'EG')],
-  localizationsDelegates: const [
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-  ],
-  // ... باقي الكود
-)
+      locale: const Locale('ar', 'EG'),
+      supportedLocales: const [
+        Locale('ar', 'EG'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
     );
   }
 }
