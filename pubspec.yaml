@@ -11,6 +11,8 @@ dependencies:
   media_kit_video: ^1.0.10
   media_kit_libs_video: ^1.0.7
   flutter_localizations:
+    flutter_riverpod: ^2.6.1
+  flutter_inappwebview: ^5.8.0
     sdk: flutter
 
 dev_dependencies:
