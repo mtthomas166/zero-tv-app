@@ -13,7 +13,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
-  flutter_inappwebview: ^5.8.0
+  flutter_inappwebview: ^6.1.5
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -29,9 +30,6 @@ flutter:
     - assets/logo1.png
     - assets/bg.png
 
-# Android-only launcher icon config. Re-run `dart run flutter_launcher_icons`
-# whenever `logo-circle.png` changes. The adaptive layer paints the same
-# circle on a dark background so all launcher mask shapes look intentional.
 flutter_launcher_icons:
   android: true
   ios: false
