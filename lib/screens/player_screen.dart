@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:pstream_android/models/media_item.dart';
@@ -11,6 +10,13 @@ class PlayerScreenArgs {
   final int? episode;
   final int? resumeFrom;
   final int? replaceEpoch;
+  // دول اللي كانوا ناقصين وبيوقعوا الـ Analyze
+  final int? seasonTmdbId;
+  final int? episodeTmdbId;
+  final String? seasonTitle;
+  final bool? isLive;
+  final String? liveChannelName;
+  final String? liveCurrentProgram;
 
   const PlayerScreenArgs({
     required this.mediaItem,
@@ -19,6 +25,12 @@ class PlayerScreenArgs {
     this.episode,
     this.resumeFrom,
     this.replaceEpoch,
+    this.seasonTmdbId,
+    this.episodeTmdbId,
+    this.seasonTitle,
+    this.isLive,
+    this.liveChannelName,
+    this.liveCurrentProgram,
   });
 }
 
@@ -74,7 +86,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           fit: BoxFit.contain,
           autoDispose: true,
           handleLifecycle: true,
-          // ExoPlayer بيفك الـ HDR 10bit صح فالشاشة الملونة بتروح
         ),
         betterPlayerDataSource: dataSource,
       );
