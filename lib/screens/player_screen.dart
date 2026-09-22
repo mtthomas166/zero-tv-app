@@ -18,9 +18,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
-    player = Player(configuration: PlayerConfiguration(
-      bufferSize: 32 * 1024 * 1024, // 32MB buffer عشان ميعلقش
-    ));
+    player = Player(
+      configuration: PlayerConfiguration(
+        vo: 'mediacodec_embed',
+        hwdec: 'mediacodec',
+        title: 'Veil',
+        osc: false,
+        bufferSize: 32 * 1024 * 1024, // 32MB buffer عشان ميعلقش
+      ),
+    );
     controller = VideoController(player);
     player.open(Media(widget.sourceUrl), play: true);
   }
@@ -39,6 +45,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       body: Center(
         child: Video(
           controller: controller,
+          fit: BoxFit.contain,
+          wakelock: true,
           controls: (state) => MaterialVideoControls(state),
         ),
       ),
