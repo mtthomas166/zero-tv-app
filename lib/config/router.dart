@@ -1,0 +1,198 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pstream_android/models/media_item.dart';
+import 'package:pstream_android/screens/detail_screen.dart';
+import 'package:pstream_android/screens/history_screen.dart';
+import 'package:pstream_android/screens/home_screen.dart';
+import 'package:pstream_android/screens/live_screen.dart';
+import 'package:pstream_android/screens/my_list_screen.dart';
+import 'package:pstream_android/screens/player_screen.dart';
+import 'package:pstream_android/screens/search_screen.dart';
+import 'package:pstream_android/screens/settings_screen.dart';
+import 'package:pstream_android/screens/splash_screen.dart';
+import 'package:pstream_android/screens/sports_screen.dart';
+import 'package:pstream_android/screens/sports_player_screen.dart';
+import 'package:pstream_android/models/sports_match.dart';
+import 'package:pstream_android/screens/watch_stats_screen.dart';
+import 'package:pstream_android/widgets/adaptive_nav.dart';
+
+final GoRouter appRouter = GoRouter(
+  initialLocation: '/splash',
+  routes: <RouteBase>[
+    GoRoute(
+      path: '/splash',
+      builder: (BuildContext context, GoRouterState state) {
+        return const SplashScreen();
+      },
+    ),
+    StatefulShellRoute.indexedStack(
+      builder:
+          (
+            BuildContext context,
+            GoRouterState state,
+            StatefulNavigationShell navigationShell,
+          ) {
+            return PopScope(
+              // System back at any tab root → switch to Home instead of exiting.
+              // When [navigationShell.currentIndex] is already 0, allow OS exit.
+              canPop: navigationShell.currentIndex == 0,
+              onPopInvokedWithResult: (bool didPop, Object? result) {
+                if (didPop) {
+                  return;
+                }
+                if (navigationShell.currentIndex != 0) {
+                  navigationShell.goBranch(0, initialLocation: false);
+                }
+              },
+              child: AdaptiveNav(
+                currentIndex: navigationShell.currentIndex,
+                onDestinationSelected: (int index) {
+                  // [goBranch] preserves each tab's nested location and scroll
+                  // state so switching tabs no longer rebuilds from scratch.
+                  // [initialLocation: false] keeps the last visited sub-route
+                  // when revisiting a branch.
+                  navigationShell.goBranch(
+                    index,
+                    initialLocation: index == navigationShell.currentIndex,
+                  );
+                },
+                child: navigationShell,
+              ),
+            );
+          },
+      branches: <StatefulShellBranch>[
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/',
+              builder: (BuildContext context, GoRouterState state) {
+                return const HomeScreen();
+              },
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/search',
+              builder: (BuildContext context, GoRouterState state) {
+                final SearchScreenArgs? args = state.extra as SearchScreenArgs?;
+                return SearchScreen(
+                  initialQuery: args?.initialQuery,
+                  title: args?.title,
+                );
+              },
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/list',
+              builder: (BuildContext context, GoRouterState state) {
+                return const MyListScreen();
+              },
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/live',
+              builder: (BuildContext context, GoRouterState state) {
+                return const LiveScreen();
+              },
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/sports',
+              builder: (BuildContext context, GoRouterState state) {
+                return const SportsScreen();
+              },
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/settings',
+              builder: (BuildContext context, GoRouterState state) {
+                return const SettingsScreen();
+              },
+            ),
+          ],
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/history',
+      builder: (BuildContext context, GoRouterState state) {
+        return const HistoryScreen();
+      },
+    ),
+    GoRoute(
+      path: '/watch-stats',
+      builder: (BuildContext context, GoRouterState state) {
+        return const WatchStatsScreen();
+      },
+    ),
+    GoRoute(
+      path: '/sports-player',
+      builder: (BuildContext context, GoRouterState state) {
+        // `extra` is null on a cold deep link / process restore — fall back to
+        // Home instead of crashing on a bad cast.
+        final Object? extra = state.extra;
+        if (extra is! SportsMatch) {
+          return const HomeScreen();
+        }
+        return SportsPlayerScreen(match: extra);
+      },
+    ),
+    GoRoute(
+      path: '/detail/:id',
+      builder: (BuildContext context, GoRouterState state) {
+        final Object? extra = state.extra;
+        if (extra is! MediaItem) {
+          return const HomeScreen();
+        }
+        return DetailScreen(mediaItem: extra);
+      },
+    ),
+    GoRoute(
+      path: '/player',
+      builder: (BuildContext context, GoRouterState state) {
+        final Object? extra = state.extra;
+        if (extra is! PlayerScreenArgs) {
+          return const HomeScreen();
+        }
+        final PlayerScreenArgs args = extra;
+
+        // Keep one player *session* per playing unit, but also include the
+        // replace epoch so a source switch can force a clean transition
+        // (prevents overlapping "double player" visuals).
+        final String? r = state.uri.queryParameters['r'];
+        final int? replaceEpoch = args.replaceEpoch ?? (r == null ? null : int.tryParse(r));
+        final String sessionId = _playerScreenSessionId(args);
+        final String keyMaterial = replaceEpoch == null
+            ? sessionId
+            : '$sessionId-r$replaceEpoch';
+
+        return PlayerScreen(
+          key: ValueKey<String>(keyMaterial),
+          args: args,
+        );
+      },
+    ),
+  ],
+);
+
+String _playerScreenSessionId(PlayerScreenArgs args) {
+  final MediaItem m = args.mediaItem;
+  if (m.isShow && args.season != null && args.episode != null) {
+    return '${m.hiveKey()}-s${args.season}-e${args.episode}';
+  }
+  return m.hiveKey();
+}

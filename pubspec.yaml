@@ -1,0 +1,54 @@
+name: pstream_android
+description: "Veil is a minimalist Android streaming client with a self-hosted resolver stack."
+publish_to: 'none'
+version: 3.1.1+30101
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  video_player: ^2.9.2
+  hive_flutter: ^1.1.0
+  flutter_riverpod: ^2.6.1
+  go_router: ^16.2.0
+  cached_network_image: ^3.4.1
+  flutter_animate: ^4.5.2
+  shimmer: ^3.0.0
+  google_fonts: ^6.3.2
+  flutter_adaptive_scaffold: ^0.3.3+1
+  http: ^1.5.0
+  screen_brightness: ^2.1.1
+  file_picker: ^11.0.2
+  path_provider: ^2.1.5
+  flutter_inappwebview: ^6.0.0
+  package_info_plus: ^8.3.0
+  open_filex: ^4.7.0
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # Generates Android `mipmap-*/ic_launcher.png` + adaptive icon resources
+  # from a single source image (`logo-circle.png` in repo root).
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - logo.png
+    - logo-circle.png
+    - assets/logo1.png
+    - assets/bg.png
+
+# Android-only launcher icon config. Re-run `dart run flutter_launcher_icons`
+# whenever `logo-circle.png` changes. The adaptive layer paints the same
+# circle on a dark background so all launcher mask shapes look intentional.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "logo-circle.png"
+  adaptive_icon_background: "#0A0613"
+  adaptive_icon_foreground: "logo-circle.png"

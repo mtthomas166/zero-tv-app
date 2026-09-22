@@ -1,0 +1,8 @@
+{
+  "name": "Veil",
+  "description": "A minimalist Android streaming client with a self-hosted resolver stack.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

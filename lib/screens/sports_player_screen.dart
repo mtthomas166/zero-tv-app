@@ -1,0 +1,517 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:pstream_android/config/app_theme.dart';
+import 'package:pstream_android/config/device_profile.dart';
+import 'package:pstream_android/models/match_stream.dart';
+import 'package:pstream_android/models/sports_match.dart';
+import 'package:pstream_android/providers/sports_provider.dart';
+import 'package:pstream_android/widgets/sports_embed_view.dart';
+
+/// Fullscreen iframe-embed player for a sports match.
+///
+/// streamed.pk streams are third-party **iframe embeds** (e.g. `embed.st/...`),
+/// not HLS/MP4, so playback happens inside a WebView rather than ExoPlayer.
+/// Ad / betting popups are suppressed and the iframe sandbox is stripped by
+/// the WebView ad blocker so the embedded player runs.
+class SportsPlayerScreen extends ConsumerStatefulWidget {
+  const SportsPlayerScreen({super.key, required this.match});
+
+  final SportsMatch match;
+
+  @override
+  ConsumerState<SportsPlayerScreen> createState() => _SportsPlayerScreenState();
+}
+
+class _SportsPlayerScreenState extends ConsumerState<SportsPlayerScreen> {
+  /// Browser UA without Android WebView's `; wv` marker. Some embed hosts
+  /// serve a degraded or blocked page to the stock WebView UA, so we present a
+  /// plain Chrome-on-Android string instead.
+  static const String _embedUserAgent =
+      'Mozilla/5.0 (Linux; Android 13; Pixel 7) '
+      'AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/128.0.0.0 Mobile Safari/537.36';
+
+  late MatchSource _selectedSource;
+
+  /// User's explicit stream choice; null falls back to an auto-picked stream.
+  MatchStream? _selectedStream;
+
+  /// The stream currently on screen (chosen or auto-picked). Captured in
+  /// [build] so the picker can highlight it. Not part of widget state — never
+  /// mutated via setState.
+  MatchStream? _activeStream;
+
+  bool _overlayVisible = true;
+  bool _webLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSource = widget.match.sources.first;
+    _enterImmersive();
+  }
+
+  @override
+  void dispose() {
+    _exitImmersive();
+    super.dispose();
+  }
+
+  Future<void> _enterImmersive() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void _exitImmersive() {
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+  }
+
+  /// Best default stream for [streams]: first HD English, else first HD,
+  /// else the first stream.
+  MatchStream? _autoPick(List<MatchStream> streams) {
+    if (streams.isEmpty) {
+      return null;
+    }
+    for (final MatchStream s in streams) {
+      if (s.hd && s.language.toLowerCase().contains('en')) {
+        return s;
+      }
+    }
+    for (final MatchStream s in streams) {
+      if (s.hd) {
+        return s;
+      }
+    }
+    return streams.first;
+  }
+
+  Future<void> _openStreamPicker() async {
+    final ({MatchSource source, MatchStream stream})? result =
+        await showModalBottomSheet<({MatchSource source, MatchStream stream})>(
+      context: context,
+      backgroundColor: AppColors.modalBackground,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) {
+        return _StreamPickerSheet(
+          match: widget.match,
+          initialSource: _selectedSource,
+          activeStream: _activeStream,
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedSource = result.source;
+        _selectedStream = result.stream;
+        _webLoading = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AsyncValue<List<MatchStream>> streamsAsync = ref.watch(
+      matchStreamsProvider(
+        MatchStreamKey(source: _selectedSource.source, id: _selectedSource.id),
+      ),
+    );
+
+    return PopScope(
+      canPop: true,
+      child: Scaffold(
+        backgroundColor: AppColors.blackC50,
+        body: streamsAsync.when(
+          data: (List<MatchStream> streams) {
+            final MatchStream? active = _resolveActive(streams);
+            _activeStream = active;
+            if (active == null) {
+              return _MessageView(
+                icon: Icons.videocam_off_rounded,
+                message: 'No playable streams for this source.',
+                actionLabel: 'Change source',
+                onAction: _openStreamPicker,
+              );
+            }
+            return _buildPlayer(active);
+          },
+          loading: () => const _MessageView(
+            icon: null,
+            message: 'Loading stream…',
+          ),
+          error: (Object error, StackTrace _) => _MessageView(
+            icon: Icons.cloud_off_rounded,
+            message: "Couldn't load this stream.",
+            actionLabel: 'Retry',
+            onAction: () => ref.invalidate(
+              matchStreamsProvider(
+                MatchStreamKey(
+                  source: _selectedSource.source,
+                  id: _selectedSource.id,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Returns the user's chosen stream when it still exists in [streams],
+  /// otherwise an auto-picked default.
+  MatchStream? _resolveActive(List<MatchStream> streams) {
+    final MatchStream? chosen = _selectedStream;
+    if (chosen != null) {
+      for (final MatchStream s in streams) {
+        if (s.id == chosen.id && s.streamNo == chosen.streamNo) {
+          return chosen;
+        }
+      }
+    }
+    return _autoPick(streams);
+  }
+
+  Widget _buildPlayer(MatchStream stream) {
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        GestureDetector(
+          // On TV the WebView captures D-pad keys, so a center-press must not
+          // be able to hide the overlay (there would be no way to summon it
+          // back). The overlay stays pinned on TV; tap-to-toggle is phone-only.
+          onTap: DeviceProfile.isTv
+              ? null
+              : () => setState(() => _overlayVisible = !_overlayVisible),
+          child: SportsEmbedView(
+            key: ValueKey<String>(stream.embedUrl),
+            url: stream.embedUrl,
+            userAgent: _embedUserAgent,
+            onLoadStop: (bool success) {
+              if (mounted) {
+                setState(() => _webLoading = false);
+              }
+            },
+            onError: (String? error) {
+              if (mounted) {
+                setState(() => _webLoading = false);
+              }
+            },
+          ),
+        ),
+        if (_webLoading)
+          const IgnorePointer(
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_overlayVisible || DeviceProfile.isTv) _buildTopOverlay(stream),
+      ],
+    );
+  }
+
+  Widget _buildTopOverlay(MatchStream stream) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              AppColors.blackC50.withValues(alpha: 0.8),
+              AppColors.transparent,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x2,
+              vertical: AppSpacing.x1,
+            ),
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  // Autofocus on TV so the D-pad always has a reachable target
+                  // above the focus-hungry WebView.
+                  autofocus: DeviceProfile.isTv,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  color: AppColors.typeEmphasis,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        widget.match.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppColors.typeEmphasis,
+                                ),
+                      ),
+                      Text(
+                        '${_selectedSource.displayName} · ${stream.label}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.typeSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _openStreamPicker,
+                  icon: const Icon(Icons.playlist_play_rounded),
+                  label: const Text('Streams'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet to pick a source and one of its streams. Pops with the
+/// selected `(source, stream)` record.
+class _StreamPickerSheet extends ConsumerStatefulWidget {
+  const _StreamPickerSheet({
+    required this.match,
+    required this.initialSource,
+    this.activeStream,
+  });
+
+  final SportsMatch match;
+  final MatchSource initialSource;
+
+  /// The stream currently playing, so its tile can be marked as selected.
+  final MatchStream? activeStream;
+
+  @override
+  ConsumerState<_StreamPickerSheet> createState() => _StreamPickerSheetState();
+}
+
+class _StreamPickerSheetState extends ConsumerState<_StreamPickerSheet> {
+  late MatchSource _source;
+
+  @override
+  void initState() {
+    super.initState();
+    _source = widget.initialSource;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AsyncValue<List<MatchStream>> streamsAsync = ref.watch(
+      matchStreamsProvider(
+        MatchStreamKey(source: _source.source, id: _source.id),
+      ),
+    );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x0,
+          AppSpacing.x4,
+          AppSpacing.x4,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Streams',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.x1),
+            Text(
+              'Pick a source, then a stream. Sources vary in language and quality.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.x3),
+            SizedBox(
+              height: AppSpacing.x10,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: widget.match.sources.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final MatchSource s = widget.match.sources[index];
+                  final bool selected = s.source == _source.source &&
+                      s.id == _source.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.x2),
+                    child: Center(
+                      child: ChoiceChip(
+                        label: Text(s.displayName),
+                        selected: selected,
+                        onSelected: (_) => setState(() => _source = s),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x3),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+              ),
+              child: streamsAsync.when(
+                data: (List<MatchStream> streams) {
+                  if (streams.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.x6),
+                      child: Text('No streams for this source.'),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: streams.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final MatchStream stream = streams[index];
+                      final MatchStream? active = widget.activeStream;
+                      final bool isActive = active != null &&
+                          active.source == stream.source &&
+                          active.id == stream.id &&
+                          active.streamNo == stream.streamNo;
+                      return ListTile(
+                        selected: isActive,
+                        selectedTileColor:
+                            AppColors.typeLink.withValues(alpha: 0.12),
+                        leading: Icon(
+                          stream.hd
+                              ? Icons.hd_rounded
+                              : Icons.sd_rounded,
+                          color: stream.hd
+                              ? AppColors.typeLink
+                              : AppColors.typeSecondary,
+                        ),
+                        title: Text(stream.label),
+                        subtitle: Text('Stream ${stream.streamNo}'),
+                        trailing: isActive
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.typeLink,
+                              )
+                            : null,
+                        onTap: () => Navigator.of(context).pop(
+                          (source: _source, stream: stream),
+                        ),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.x6),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (Object error, StackTrace _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.x6),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.typeSecondary,
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      const Expanded(
+                        child: Text("Couldn't load streams for this source."),
+                      ),
+                      TextButton(
+                        onPressed: () => ref.invalidate(
+                          matchStreamsProvider(
+                            MatchStreamKey(source: _source.source, id: _source.id),
+                          ),
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageView extends StatelessWidget {
+  const _MessageView({
+    required this.icon,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData? icon;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.x6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (icon == null)
+                  const CircularProgressIndicator()
+                else
+                  Icon(icon, color: AppColors.typeSecondary, size: AppSpacing.x12),
+                const SizedBox(height: AppSpacing.x3),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.typeEmphasis,
+                      ),
+                ),
+                if (actionLabel != null && onAction != null) ...<Widget>[
+                  const SizedBox(height: AppSpacing.x4),
+                  OutlinedButton(
+                    onPressed: onAction,
+                    child: Text(actionLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: AppColors.typeEmphasis,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

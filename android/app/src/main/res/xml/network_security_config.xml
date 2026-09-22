@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Veil transport policy.
+
+  Default: cleartext HTTP is DENIED app-wide, so all normal traffic (TMDB,
+  GitHub, wfs.lol, HTTPS resolver/sports URLs) must be TLS and cannot be
+  silently downgraded / MITM'd on public Wi-Fi.
+
+  Exception: the self-hosted Oracle VM is currently reached over plain HTTP by
+  IP (resolver :3001, sports :3003). Cleartext is allowed ONLY for that host so
+  the app keeps working today. Move the VM to HTTPS and delete this exception.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Self-hosted backend (HTTP-only for now). Replace with a TLS hostname. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">140.245.199.210</domain>
+        <!-- Local development / emulator loopback. -->
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

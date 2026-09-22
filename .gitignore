@@ -1,0 +1,66 @@
+.codex/
+.claude/
+.cursor/
+.idea/
+.kiro/
+.mcp.json
+.metadata
+.opencode.json
+.windsurfrules
+.cursorrules
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+PROGRESS.md
+# Never commit: session / handoff / local agent notes
+*HANDOFF*.md
+*CHAT_CONTEXT*
+NEXT_CHAT_*.md
+SESSION_HANDOFF_*.md
+issues-fixes.md
+PROMPTS.md
+SETUP.md
+release.yml
+switch-dev.sh
+pstream_kt_v3_final.html
+PAT.txt
+ssh-key-*.key
+ssh-key-*.pub
+*.iml
+.codex/.env
+*.keystore
+*.jks
+key.properties
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+node_modules/
+.pnpm-store/
+backend/**/.env
+docs/agents/**
+
+# Legacy providers stack — not deployed, and it carries hardcoded third-party
+# API keys / scraper creds that must not stay in a public repo.
+backend/providers-lib/
+
+# Local agent tooling / scratch — never publish
+work done by openclaude/
+.agents/
+.kilocode/
+skills-lock.json
+/package.json
+/package-lock.json
+android/.kotlin/
+api.js(*).js
+patch-xprime-finger.sh
+vidsrc_extractor_architecture_guide.html
+IMPLEMENTATION_BRIEF.md
+CUsersPracheer*
+# Scratch API/HTTP dumps occasionally written to the repo root during testing
+/rel*.json
+/runs*.json
+/vj.json
+
+# Added by code-review-graph
+.code-review-graph/
