@@ -103,7 +103,7 @@ class MediaItem {
     String? episodeTmdbId,
     String? seasonTitle,
   }) {
-     final String? imdb = _scrapeImdbQueryValue(imdbId);
+      final String? imdb = _scrapeImdbQueryValue(imdbId);
   return <String, String>{
     'type': isShow ? 'tv' : 'movie',
     'tmdbId': '$tmdbId',
@@ -111,7 +111,7 @@ class MediaItem {
     if (year > 0) 'year': '$year',
     if (season != null) 'season': '$season',
     if (episode != null) 'episode': '$episode',
-    'imdbId': imdb,
+    if (imdb != null && imdb.isNotEmpty) 'imdbId': imdb,
       if (seasonTmdbId != null && seasonTmdbId.trim().isNotEmpty)
         'seasonTmdbId': seasonTmdbId.trim(),
       if (episodeTmdbId != null && episodeTmdbId.trim().isNotEmpty)
